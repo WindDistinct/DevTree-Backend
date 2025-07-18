@@ -1,4 +1,4 @@
-import express from 'express' 
+import express from 'express'
 import cors from 'cors'
 import 'dotenv/config'
 import router from './router'
@@ -11,6 +11,8 @@ const app = express()
 
 // Cors
 app.use(cors(corsConfig))
+
+app.options('*', cors(corsConfig))
 
 // Leer datos de formularios
 app.use(express.json())
