@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import User from '../models/User';
 import Visit from '../models/Visit';
+import mongoose from 'mongoose';
 
 export const trackVisit = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { handle } = req.params;
-        const visitorId = req.user?._id?.toString() || null;
+        const visitorId = req.user?._id?.toString();
         const ip = req.ip;
 
         const profile = await User.findOne({ handle });
@@ -13,20 +14,27 @@ export const trackVisit = async (req: Request, res: Response, next: NextFunction
 
         if (visitorId && visitorId === profile._id.toString()) return next();
 
-        await User.updateOne({ _id: profile._id }, { $inc: { 'stats.totalVisits': 1 } });
+        const updateOps: any = {
+            $inc: { 'stats.totalVisits': 1 },
+            $push: {
+                'stats.visitHistory': {
+                    visitorId: visitorId || undefined,
+                    timestamp: new Date()
+                }
+            }
+        };
 
-        const existingVisit = await Visit.findOne({
-            profile: profile._id,
-            ...(visitorId ? { visitor: visitorId } : { ip })
-        });
-
-        if (!existingVisit) {
-            await Visit.create({
-                profile: profile._id,
-                visitor: visitorId || undefined,
-                ip: visitorId ? undefined : ip
-            });
+        if (visitorId) {
+            updateOps.$addToSet = { 'stats.uniqueVisitors': visitorId };
         }
+
+        await User.updateOne({ _id: profile._id }, updateOps);
+
+        await Visit.create({
+            profile: profile._id,
+            visitor: visitorId ? new mongoose.Types.ObjectId(visitorId) : undefined,
+            ip: visitorId ? undefined : ip
+        });
 
         next();
     } catch (error) {

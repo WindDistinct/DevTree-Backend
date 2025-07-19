@@ -157,11 +157,31 @@ export const searchByHandle = async (req: Request, res: Response) => {
 }
 
 export const getActivity = async (req: Request, res: Response) => {
-    const { handle } = req.params;
-    const user = await User.findOne({ handle });
+    try {
+        const { handle } = req.params;
+        const user = await User.findOne({ handle });
 
-    if (!user) return res.status(404).json({ error: 'Perfil no encontrado' });
+        if (!user) return res.status(404).json({ error: 'Perfil no encontrado' });
 
-    const data = await getDailyVisitActivity(user._id.toString());
-    res.json(data);
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+
+        const todayVisits = await Visit.countDocuments({
+            profile: user._id,
+            createdAt: { $gte: todayStart, $lte: todayEnd }
+        });
+
+        const dailyActivity = await getDailyVisitActivity(user._id.toString());
+
+        res.json({
+            today: todayVisits,
+            dailyActivity
+        });
+    } catch (e) {
+        const error = new Error('Error al obtener actividad');
+        return res.status(500).json({ error: error.message });
+    }
 }

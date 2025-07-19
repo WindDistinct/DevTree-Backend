@@ -6,15 +6,13 @@ export async function getDailyVisitActivity(profileId: string) {
         {
             $match: {
                 profile: new mongoose.Types.ObjectId(profileId),
-                createdAt: { $gte: new Date(new Date().setFullYear(new Date().getFullYear() - 1)) }
+                createdAt: { $gte: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000) } // Últimos 6 meses
             }
         },
         {
             $group: {
                 _id: {
-                    year: { $year: '$createdAt' },
-                    month: { $month: '$createdAt' },
-                    day: { $dayOfMonth: '$createdAt' }
+                    $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
                 },
                 count: { $sum: 1 }
             }
@@ -22,20 +20,15 @@ export async function getDailyVisitActivity(profileId: string) {
         {
             $project: {
                 _id: 0,
-                date: {
-                    $dateFromParts: {
-                        year: '$_id.year',
-                        month: '$_id.month',
-                        day: '$_id.day'
-                    }
-                },
+                date: "$_id",
                 count: 1
             }
         },
-        {
-            $sort: { date: 1 }
-        }
+        { $sort: { date: 1 } }
     ]);
 
-    return results; // [{ date: '2025-07-15T00:00:00Z', count: 3 }, ...]
+    return results.map(item => ({
+        date: item.date,
+        count: item.count
+    }));
 }
